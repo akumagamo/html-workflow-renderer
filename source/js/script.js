@@ -2,35 +2,66 @@
 
 (function(canvas){
     const DEFAULT_SHAPE_SIZE = { width: 50, height: 20 };
-    const SHAPES = {STATE: 0, TASK: 1, CONDITIONAL: 2, FORK: 3, JOIN: 4 };
-    const QUANDRANTS = {Q0: 0, Q1: 1, Q2: 2, Q3: 3, VERTICAL: 4, HORIZONTAL: 5};
+    const SHAPES = { STATE: 0, TASK: 1, CONDITIONAL: 2, FORK: 3, JOIN: 4 };
+    const QUANDRANTS = { Q0: 0, Q1: 1, Q2: 2, Q3: 3, VERTICAL: 4, HORIZONTAL: 5 };
+    const TRANSITION = { COLOR: "black", ARROW_SIZE: 5, ARROW_FILL_COLOR: "white" };
+    const CANVAS_SIZE = {width: 400, height:400};   
 
-    const ARROW_SIZE = 5;
+    var dragObject = { isDragging: false };
 
-    var context = canvas.getContext("2d");
+    function stopDragEvent(event){
+        dragObject.isDragging = false;
+        delete dragObject.currentItem;
+    }
 
-    canvas.width = 400;
-    canvas.height = 400;
+    canvas.addEventListener("mousedown", function(event){
+        var selectedItem = WorkflowEngine.selectItem(event.offsetX, event.offsetY);
+        dragObject.isDragging = selectedItem !== undefined;
+        console.info(dragObject, dragObject.isDragging);
+        dragObject.currentItem = selectedItem;
+    });
 
-    var workflowNodes = [ 
-    {name: "created", type: SHAPES.STATE, x:25, y:20, targets:["review"] },
-    {name: "review",type: SHAPES.TASK, x:25, y:180, targets:["if"]},
-    {name: "approved",type: SHAPES.STATE, x:350, y:20, targets:[]},
-    {name: "if",type: SHAPES.CONDITIONAL, x:100, y:175, targets:["split","error","join"]},
-    {name: "split",type: SHAPES.FORK, x:205, y:160, targets:["safe state","xor"]},
-    {name: "join",type: SHAPES.JOIN, x:180, y:20, targets:["xor"]},
-    {name: "safe state",type: SHAPES.STATE, x:195,y:75, targets:["join"]},
-    {name: "xor",type: SHAPES.JOIN, x:350, y:140, targets:["approved"]},
-    {name: "error",type: SHAPES.STATE, x:210, y:260, targets:["xor"]}
-  ];
+    canvas.addEventListener("mousemove", function(event){
+        if(dragObject.isDragging && dragObject.currentItem !== undefined){
+            dragObject.currentItem.x = event.offsetX;
+            dragObject.currentItem.y = event.offsetY;
+            WorkflowEngine.render();
+        }
+    });
+
+    canvas.addEventListener("mouseup", stopDragEvent);
+
+    canvas.addEventListener("mouseout", stopDragEvent);
+
+    var demoWorkflowNodes = [ 
+        {name: "created", type: SHAPES.STATE, x:25, y:20, targets:["review"] },
+        {name: "review",type: SHAPES.TASK, x:25, y:180, targets:["if"]},
+        {name: "approved",type: SHAPES.STATE, x:350, y:20, targets:[]},
+        {name: "if",type: SHAPES.CONDITIONAL, x:100, y:175, targets:["split","error","join"]},
+        {name: "split",type: SHAPES.FORK, x:205, y:160, targets:["safe state","xor"]},
+        {name: "join",type: SHAPES.JOIN, x:180, y:20, targets:["xor"]},
+        {name: "safe state",type: SHAPES.STATE, x:195,y:75, targets:["join"]},
+        {name: "xor",type: SHAPES.JOIN, x:350, y:140, targets:["approved"]},
+        {name: "error",type: SHAPES.STATE, x:210, y:260, targets:["xor"]}
+    ];
 
     var WorkflowEngine = {
-        init: function (context, workflow) {
+        init: function (canvas, workflow) {
+            canvas.width = CANVAS_SIZE.width;
+            canvas.height = CANVAS_SIZE.height;
             this.workflow = workflow;
-            this.context = context;
+            this.context = canvas.getContext("2d");
+        },
+        selectItem: function(x, y){
+            var selectedItem = this.workflow.find(
+                (item)=>{
+                    return (item.x - DEFAULT_SHAPE_SIZE.width/2) <= x && (item.x + DEFAULT_SHAPE_SIZE.width/2) >= x &&
+                        (item.y - DEFAULT_SHAPE_SIZE.height/2) <= y && (item.y + DEFAULT_SHAPE_SIZE.height/2) >= y;
+                });
+            return selectedItem;
         },
         render: function(){
-            this.context.clearRect(0, 0, 300, 300);
+            this.context.clearRect(0, 0, CANVAS_SIZE.width, CANVAS_SIZE.height);
             for (var idx = 0; idx < this.workflow.length; idx++) {
                 var item = this.workflow[idx];
                 var transitionsPoints = this.getTransitionsEndPoints(item.targets);
@@ -50,31 +81,6 @@
         }
     };
 
-    function getQuadrant(pointx, pointy, targetx, targety) {
-        var quadrant;
-        if (pointx < targetx  && pointy >= targety) {
-            quadrant = QUANDRANTS.Q0;
-        } else if (pointx <= targetx  && pointy < targety) {
-            quadrant = QUANDRANTS.Q1;
-        } else if (pointx > targetx  && pointy <= targety) {
-            quadrant = QUANDRANTS.Q2;
-        } else if (pointx >= targetx  && pointy > targety) {
-            quadrant = QUANDRANTS.Q3;
-        } else {
-            throw {name:"Not Implemented", message:"Not Implemented"};
-        }
-        return quadrant;
-    }
-
-    function drawShapex(context, x, y){
-        var topLeft = {
-            x: x - DEFAULT_SHAPE_SIZE.width / 2,
-            y: y - DEFAULT_SHAPE_SIZE.height / 2
-        };
-        context.strokeStyle = "gray";
-        context.strokeRect(topLeft.x, topLeft.y, DEFAULT_SHAPE_SIZE.width, DEFAULT_SHAPE_SIZE.height);
-    }
-
     function drawShape(context, x, y, type){
         var topLeft = {
             x: x - DEFAULT_SHAPE_SIZE.width / 2,
@@ -90,9 +96,9 @@
                 var radius = height/2;
                 context.beginPath();
                 context.strokeStyle = "green";
-                context.arc(topLeft.x + radius, topLeft.y + radius, radius,   1/2*Math.PI , -1/2*Math.PI);
+                context.arc(topLeft.x + radius, topLeft.y + radius, radius,   0.5 * Math.PI , -0.5 * Math.PI);
                 context.lineTo(topLeft.x + width - radius, topLeft.y);
-                context.arc(topLeft.x + width - radius, topLeft.y + radius, radius, -1/2*Math.PI, 1/2*Math.PI);
+                context.arc(topLeft.x + width - radius, topLeft.y + radius, radius, -0.5 * Math.PI, 0.5 * Math.PI);
                 context.closePath();
                 context.stroke();
                 break;
@@ -114,7 +120,70 @@
         }
     }
 
-    function drawTransition(pointx, pointy, targetx, targety){
+    function drawTransitions(context, pointx, pointy, targets){
+        context.strokeStyle = TRANSITION.COLOR;
+        for (var idx = 0; idx < targets.length; idx++) {
+            var target = targets[idx];
+            var startPoint = calculateNewTransitionPoint(pointx, pointy, target.x, target.y);
+            var endPoint = calculateNewTransitionPoint(target.x, target.y, pointx, pointy);
+            drawLine(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
+            drawArrow(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y, true);
+        }
+    }
+
+    function drawLine(context, fromx, fromy, tox, toy){
+        context.beginPath();
+        context.moveTo( fromx, fromy );
+        context.lineTo( tox, toy );
+        context.stroke();
+    }
+
+    function drawArrow (context, fromx, fromy, tox, toy, fullarrow) {
+        var arrowSize = TRANSITION.ARROW_SIZE;
+        var vx = tox - fromx;
+        var vy = toy - fromy;
+
+        var theta = Math.acos(vx / calculateVectorLength(vx, vy)); 
+
+        var gamma = 30 * Math.PI / 180;
+        var deltaAngle = (Math.PI - gamma);
+
+        var x1 = -arrowSize * Math.cos(gamma + theta);
+        var y1 = arrowSize * Math.sin(gamma + theta);
+
+        var x2 = arrowSize * Math.cos(deltaAngle + theta);
+        var y2 = arrowSize * Math.sin(deltaAngle + theta);
+
+        if(fromy <= toy) {
+            var helpVar = x1;
+
+            x1 = x2; 
+            x2 = helpVar;
+
+            helpVar = -y1;
+            y1 = y2;
+            y2 = helpVar;
+        } 
+        else if(fromy > toy) {
+            x2 = x2;
+            y2 = -y2;
+        } 
+
+        context.strokeStyle = TRANSITION.COLOR;
+        context.beginPath();
+        context.moveTo(tox + x2, toy + y2);
+        context.lineTo(tox, toy);
+        context.lineTo(tox + x1 , toy + y1);
+
+        if(fullarrow){
+            context.fillStyle = TRANSITION.ARROW_FILL_COLOR;
+            context.closePath();
+            context.fill();
+        }
+        context.stroke();
+    }
+
+    function calculateNewTransitionPoint(pointx, pointy, targetx, targety){
 
         var s;
         var newX;
@@ -122,7 +191,7 @@
         var pointSlope;
         var targetSlope = (targetx - pointx) / (targety - pointy);
 
-        switch(getQuadrant(pointx, pointy, targetx, targety)){
+        switch(calculateQuadrant(pointx, pointy, targetx, targety)){
             case QUANDRANTS.Q0:
                 pointSlope = 
                     ((pointx + DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
@@ -196,103 +265,27 @@
         }
     }
 
-    function drawTransitions(context, pointx, pointy, targets){
-        context.strokeStyle = "black";
-        for (var idx = 0; idx < targets.length; idx++) {
-            var target = targets[idx];
-            var startPoint = drawTransition(pointx, pointy, target.x, target.y);
-            var endPoint = drawTransition(target.x, target.y, pointx, pointy);
-            context.beginPath();
-            context.moveTo( startPoint.x, startPoint.y );
-            context.lineTo( endPoint.x, endPoint.y );
-            context.stroke();
-            drawArrow(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y, true);
+    function calculateQuadrant(pointx, pointy, targetx, targety) {
+        var quadrant;
+        if (pointx < targetx  && pointy >= targety) {
+            quadrant = QUANDRANTS.Q0;
+        } else if (pointx <= targetx  && pointy < targety) {
+            quadrant = QUANDRANTS.Q1;
+        } else if (pointx > targetx  && pointy <= targety) {
+            quadrant = QUANDRANTS.Q2;
+        } else if (pointx >= targetx  && pointy > targety) {
+            quadrant = QUANDRANTS.Q3;
+        } else {
+            throw {name:"Not Implemented", message:"Not Implemented"};
         }
-    }
-
-     function drawArrow (context, fromx, fromy, tox, toy, fullarrow) {
-        var arrowSize = ARROW_SIZE;
-        var vx = tox - fromx;
-        var vy = toy - fromy;
-
-        var theta = Math.acos(vx / calculateVectorLength(vx, vy)); 
-
-        var gamma = 30 * Math.PI / 180;
-        var deltaAngle = (Math.PI - gamma);
-
-        var x1 = -arrowSize * Math.cos(gamma + theta);
-        var y1 = arrowSize * Math.sin(gamma + theta);
-
-        var x2 = arrowSize * Math.cos(deltaAngle + theta);
-        var y2 = arrowSize * Math.sin(deltaAngle + theta);
-
-        if(fromy <= toy) {
-            var helpVar = x1;
-
-            x1 = x2; 
-            x2 = helpVar;
-
-            helpVar = -y1;
-            y1 = y2;
-            y2 = helpVar;
-        } 
-        else if(fromy > toy) {
-            x2 = x2;
-            y2 = -y2;
-        } 
-
-        context.strokeStyle = "black";
-        context.beginPath();
-        context.moveTo(tox + x2, toy + y2);
-        context.lineTo(tox, toy);
-        context.lineTo(tox + x1 , toy + y1);
-        
-        if(fullarrow){
-            context.fillStyle = "white";
-            context.closePath();
-            context.fill();
-        }
-        context.stroke();
+        return quadrant;
     }
 
     function calculateVectorLength (x, y) {
         return Math.sqrt(Math.pow(x,2) + Math.pow(y,2));
     }
 
-    WorkflowEngine.init(context, workflowNodes);
+    WorkflowEngine.init(canvas, demoWorkflowNodes);
     WorkflowEngine.render();
-
-    function tester(){
-        const HELPER_HEIGHT = 250;
-        const HELPER_WIDTH = 250;
-        var currentheight = HELPER_HEIGHT;
-        var currentweight = HELPER_WIDTH;
-        var modifyHeight = true;
-        var rotationCount = 0;
-        
-        window.interval = setInterval( () => {       
-            if(modifyHeight){
-                WorkflowEngine.workflow[rotationCount%2===0?0:1].y = HELPER_HEIGHT - currentheight;
-                WorkflowEngine.workflow[rotationCount%2===0?1:0].y = currentheight;
-                WorkflowEngine.render();
-                currentheight -= 10;
-                if(currentheight<50){
-                    modifyHeight = false;
-                    currentweight = HELPER_HEIGHT -50 ;
-                }
-            } else {
-                WorkflowEngine.workflow[rotationCount%2===0?0:1].x = HELPER_WIDTH - currentweight;
-                WorkflowEngine.workflow[rotationCount%2===0?1:0].x = currentweight;
-                WorkflowEngine.render();
-                currentweight -= 10;
-                if(currentweight < 50){
-                    modifyHeight = true;
-                    currentheight = HELPER_HEIGHT -50;
-                    rotationCount++;
-                }
-            }
-        }, 100);
-    }
-  // tester();
 
 }(document.getElementById("canvas")));
