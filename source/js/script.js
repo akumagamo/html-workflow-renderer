@@ -84,9 +84,9 @@
         var height = DEFAULT_SHAPE_SIZE.height;
         var width = DEFAULT_SHAPE_SIZE.width;
 
-         switch(type){
-            case 0:  // flowchart Start / Stop
-            case 4:
+        switch(type){
+            case SHAPES.STATE: 
+            case SHAPES.JOIN:
                 var radius = height/2;
                 context.beginPath();
                 context.strokeStyle = "green";
@@ -96,12 +96,12 @@
                 context.closePath();
                 context.stroke();
                 break;
-            case 1: // flowchart OPERATION
+            case SHAPES.TASK:
                 context.strokeStyle = "gray";
                 context.strokeRect(topLeft.x, topLeft.y, width, height);
                 break;
-            case 2:
-            case 3:
+            case SHAPES.CONDITIONAL:
+            case SHAPES.FORK:
                 context.strokeStyle = "red";
                 context.beginPath();
                 context.moveTo(topLeft.x + width/2, topLeft.y);
@@ -211,47 +211,48 @@
     }
 
      function drawArrow (context, fromx, fromy, tox, toy, fullarrow) {
-      var arrowSize = ARROW_SIZE;
-      var vx = tox - fromx;
-      var vy = toy - fromy;
-      
-      var theta = Math.acos(vx / calculateVectorLength(vx, vy)); 
-      
-      var gamma = 30 * Math.PI / 180;
-      var deltaAngle = (Math.PI - gamma);
-      
-      var x1 = -arrowSize * Math.cos(gamma + theta);
-      var y1 = arrowSize * Math.sin(gamma + theta);
-      
-      var x2 = arrowSize * Math.cos(deltaAngle + theta);
-      var y2 = arrowSize * Math.sin(deltaAngle + theta);
-      
-      if(fromy <= toy) {
-        var helpVar = x1;
+        var arrowSize = ARROW_SIZE;
+        var vx = tox - fromx;
+        var vy = toy - fromy;
+
+        var theta = Math.acos(vx / calculateVectorLength(vx, vy)); 
+
+        var gamma = 30 * Math.PI / 180;
+        var deltaAngle = (Math.PI - gamma);
+
+        var x1 = -arrowSize * Math.cos(gamma + theta);
+        var y1 = arrowSize * Math.sin(gamma + theta);
+
+        var x2 = arrowSize * Math.cos(deltaAngle + theta);
+        var y2 = arrowSize * Math.sin(deltaAngle + theta);
+
+        if(fromy <= toy) {
+            var helpVar = x1;
+
+            x1 = x2; 
+            x2 = helpVar;
+
+            helpVar = -y1;
+            y1 = y2;
+            y2 = helpVar;
+        } 
+        else if(fromy > toy) {
+            x2 = x2;
+            y2 = -y2;
+        } 
+
+        context.strokeStyle = "black";
+        context.beginPath();
+        context.moveTo(tox + x2, toy + y2);
+        context.lineTo(tox, toy);
+        context.lineTo(tox + x1 , toy + y1);
         
-        x1 = x2; 
-        x2 = helpVar;
-        
-        helpVar = -y1;
-        y1 = y2;
-        y2 = helpVar;
-      } 
-      else if(fromy > toy) {
-        x2 = x2;
-        y2 = -y2;
-      } 
-      
-      context.strokeStyle = "black";
-      context.beginPath();
-      context.moveTo(tox + x2, toy + y2);
-      context.lineTo(tox, toy);
-      context.lineTo(tox + x1 , toy + y1);
-      if(fullarrow){
-        context.fillStyle = "white";
-        context.closePath();
-        context.fill();
-      }
-      context.stroke();
+        if(fullarrow){
+            context.fillStyle = "white";
+            context.closePath();
+            context.fill();
+        }
+        context.stroke();
     }
 
     function calculateVectorLength (x, y) {
