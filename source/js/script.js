@@ -2,7 +2,7 @@
 
 (function(canvas){
     const DEFAULT_SHAPE_SIZE = { width: 50, height: 20 };
-    const SHAPES = {STATE: 0, TASK: 1, CONDITIONAL: 2, FORK: 2, JOIN: 2,};
+    const SHAPES = {STATE: 0, TASK: 1, CONDITIONAL: 2, FORK: 3, JOIN: 4 };
     const QUANDRANTS = {Q0: 0, Q1: 1, Q2: 2, Q3: 3, VERTICAL: 4, HORIZONTAL: 5};
 
     const ARROW_SIZE = 5;
@@ -12,11 +12,7 @@
     canvas.width = 400;
     canvas.height = 400;
 
-    var workflowNodes = /* [
-        { name: "state1", type: "state", x: 50, y: 150, targets: ["state2"], isStartState: true },
-        { name: "state2", type: "state", x: 250, y:  150, targets: [], isStartState: false, isEndState: true }
-    ];*/
-     [ 
+    var workflowNodes = [ 
     {name: "created", type: SHAPES.STATE, x:25, y:20, targets:["review"] },
     {name: "review",type: SHAPES.TASK, x:25, y:180, targets:["if"]},
     {name: "approved",type: SHAPES.STATE, x:350, y:20, targets:[]},
@@ -90,6 +86,7 @@
 
          switch(type){
             case 0:  // flowchart Start / Stop
+            case 4:
                 var radius = height/2;
                 context.beginPath();
                 context.strokeStyle = "green";
@@ -103,7 +100,8 @@
                 context.strokeStyle = "gray";
                 context.strokeRect(topLeft.x, topLeft.y, width, height);
                 break;
-            case 2: // flowchart Split
+            case 2:
+            case 3:
                 context.strokeStyle = "red";
                 context.beginPath();
                 context.moveTo(topLeft.x + width/2, topLeft.y);
@@ -113,7 +111,7 @@
                 context.closePath();
                 context.stroke();
                 break;
-            }
+        }
     }
 
     function drawTransition(pointx, pointy, targetx, targety){
@@ -208,11 +206,11 @@
             context.moveTo( startPoint.x, startPoint.y );
             context.lineTo( endPoint.x, endPoint.y );
             context.stroke();
-            drawArrow(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
+            drawArrow(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y, true);
         }
     }
 
-     function drawArrow (context, fromx, fromy, tox, toy) {
+     function drawArrow (context, fromx, fromy, tox, toy, fullarrow) {
       var arrowSize = ARROW_SIZE;
       var vx = tox - fromx;
       var vy = toy - fromy;
@@ -248,11 +246,11 @@
       context.moveTo(tox + x2, toy + y2);
       context.lineTo(tox, toy);
       context.lineTo(tox + x1 , toy + y1);
-     /* if(fullarrow){
-        ctx.fillStyle = "white";
-        ctx.closePath();
-        ctx.fill();
-      }*/
+      if(fullarrow){
+        context.fillStyle = "white";
+        context.closePath();
+        context.fill();
+      }
       context.stroke();
     }
 
