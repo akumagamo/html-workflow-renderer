@@ -5,9 +5,10 @@
     const SHAPES = { STATE: 0, TASK: 1, CONDITIONAL: 2, FORK: 3, JOIN: 4 };
     const QUANDRANTS = { Q0: 0, Q1: 1, Q2: 2, Q3: 3, VERTICAL: 4, HORIZONTAL: 5 };
     const TRANSITION = { COLOR: "black", ARROW_SIZE: 5, ARROW_FILL_COLOR: "white" };
-    const CANVAS_SIZE = {width: 400, height:400};   
+    const CANVAS_SIZE = {width: 500, height:500};   
 
     var dragObject = { isDragging: false };
+    var transitionObject = { isTransitionStarted: false };
 
     function drawArrow (context, fromx, fromy, tox, toy, fullarrow) {
         var arrowSize = TRANSITION.ARROW_SIZE;
@@ -61,7 +62,7 @@
         context.stroke();
     }
 
-    function drawShape(context, x, y, type){
+    function drawShape(context, x, y, type, isshapeselected){
         var topLeft = {
             x: x - DEFAULT_SHAPE_SIZE.width / 2,
             y: y - DEFAULT_SHAPE_SIZE.height / 2
@@ -69,6 +70,8 @@
 
         var height = DEFAULT_SHAPE_SIZE.height;
         var width = DEFAULT_SHAPE_SIZE.width;
+
+        context.fillStyle = "gray";
 
         switch(type){
             case SHAPES.STATE: 
@@ -80,10 +83,19 @@
                 context.lineTo(topLeft.x + width - radius, topLeft.y);
                 context.arc(topLeft.x + width - radius, topLeft.y + radius, radius, -0.5 * Math.PI, 0.5 * Math.PI);
                 context.closePath();
+
+                if(isshapeselected){
+                    context.fill();
+                }
+
                 context.stroke();
                 break;
             case SHAPES.TASK:
                 context.strokeStyle = "gray";
+                 
+                if(isshapeselected){
+                    context.fillRect(topLeft.x, topLeft.y, width, height);
+                }
                 context.strokeRect(topLeft.x, topLeft.y, width, height);
                 break;
             case SHAPES.CONDITIONAL:
@@ -95,6 +107,9 @@
                 context.lineTo(topLeft.x + width / 2, topLeft.y + height);
                 context.lineTo(topLeft.x , topLeft.y + height/2);
                 context.closePath();
+                 if(isshapeselected){
+                    context.fill();
+                }
                 context.stroke();
                 break;
         }
@@ -222,26 +237,71 @@
     }
 
     function stopDragEvent(event){
+        canvas.style.cursor = "default";
         dragObject.isDragging = false;
-        delete dragObject.currentItem;
+     //   delete dragObject.currentItem;
     }
 
     canvas.addEventListener("mousedown", function(event){
-        dragObject.currentItem = WorkflowEngine.selectItem(event.offsetX, event.offsetY);
-        dragObject.isDragging = dragObject.currentItem !== undefined;
+        dragObject.currentItem = WorkflowEngine.selectItem(event.x, event.y);
+        if(event.ctrlKey){
+            if(transitionObject.isTransitionStarted){ 
+                if(transitionObject.currentItem !== undefined && dragObject.currentItem!==undefined){
+                    transitionObject.currentItem.targets.push(dragObject.currentItem.name);
+                }
+                canvas.style.cursor = "default";
+                delete transitionObject.currentItem;
+                delete dragObject.currentItem;
+                delete WorkflowEngine.selectedItem;
+
+                dragObject.isDragging = false;
+                transitionObject.isTransitionStarted = false;
+                return;
+            } else {
+                transitionObject.currentItem = dragObject.currentItem;
+                transitionObject.isTransitionStarted = transitionObject.currentItem !== undefined;
+            }
+            canvas.style.cursor = transitionObject.isTransitionStarted ? "crosshair" : "default";
+            dragObject.isDragging = false;
+        } else {
+            canvas.style.cursor = "default";
+            dragObject.isDragging = dragObject.currentItem !== undefined;
+            transitionObject.isTransitionStarted = false;
+            delete transitionObject.currentItem;
+        }       
+        WorkflowEngine.render();
     });
 
     canvas.addEventListener("mousemove", function(event){
         if(dragObject.isDragging && dragObject.currentItem !== undefined){
-            dragObject.currentItem.x = event.offsetX;
-            dragObject.currentItem.y = event.offsetY;
-            WorkflowEngine.render();
+            dragObject.currentItem.x = event.x - 100;
+            dragObject.currentItem.y = event.y ;
         }
+        WorkflowEngine.render();
     });
 
-    canvas.addEventListener("mouseup", stopDragEvent);
+    canvas.addEventListener("mouseup", function(event){
+        if(!event.ctrlKey){
+            stopDragEvent();
+        }
+        WorkflowEngine.render();
+    });
 
-    canvas.addEventListener("mouseout", stopDragEvent);
+    canvas.addEventListener("mouseout", function(event){
+        if(!event.ctrlKey){
+            //stopDragEvent();
+        }
+        WorkflowEngine.render();
+    });
+
+// HELPER
+
+    var helper = 0;
+
+    canvas.addEventListener("dblclick", function(event){
+        WorkflowEngine.createNewNode({name: "created " + (helper++) , type: SHAPES.STATE, x:event.x, y:event.y, targets:[] });
+        WorkflowEngine.render();
+    });
 
     var demoWorkflowNodes = [ 
         {name: "created", type: SHAPES.STATE, x:25, y:20, targets:["review"] },
@@ -263,21 +323,25 @@
             this.context = canvas.getContext("2d");
         },
         selectItem: function(x, y){
-            var selectedItem = this.workflow.find(
+            this.selectedItem = this.workflow.find(
                 (item)=>{
-                    return (item.x - DEFAULT_SHAPE_SIZE.width/2) <= x && (item.x + DEFAULT_SHAPE_SIZE.width/2) >= x &&
+                    return (item.x+100 - DEFAULT_SHAPE_SIZE.width/2) <= x && (item.x+100 + DEFAULT_SHAPE_SIZE.width/2) >= x &&
                         (item.y - DEFAULT_SHAPE_SIZE.height/2) <= y && (item.y + DEFAULT_SHAPE_SIZE.height/2) >= y;
                 });
-            return selectedItem;
+            return this.selectedItem;
+        },
+        createNewNode: function(node){
+            this.workflow.push(node);
         },
         render: function(){
             this.context.clearRect(0, 0, CANVAS_SIZE.width, CANVAS_SIZE.height);
             for (var idx = 0; idx < this.workflow.length; idx++) {
                 var item = this.workflow[idx];
                 var transitionsPoints = this.getTransitionsEndPoints(item.targets);
-                drawTransitions(this.context, item.x, item.y, transitionsPoints);
-                drawShape(this.context, item.x, item.y, item.type);
+                drawTransitions(this.context, item.x + 100, item.y, transitionsPoints);
+                drawShape(this.context, item.x + 100, item.y, item.type, item===this.selectedItem);
             }
+             drawLegend(this.context);
         },
         getTransitionsEndPoints: function(targets){
             return targets.map(
@@ -285,7 +349,7 @@
                     var target = this.workflow.find((x)=>{
                         return x.name === item;
                     });
-                    return {x: target.x, y: target.y, name: target.name};
+                    return {x: target.x + 100, y: target.y, name: target.name};
                 }
             );
         }
@@ -293,5 +357,19 @@
 
     WorkflowEngine.init(canvas, demoWorkflowNodes);
     WorkflowEngine.render();
+
+    function drawLegend(context){
+        var x = DEFAULT_SHAPE_SIZE.width + 5;
+        var y = DEFAULT_SHAPE_SIZE.height;
+
+        context.strokeStyle = "black";
+        context.rect(5, 5, DEFAULT_SHAPE_SIZE.width*2 -10, CANVAS_SIZE.height -10);
+        context.stroke();
+
+        for(var shapeName in SHAPES){
+            drawShape(context, x, y, SHAPES[shapeName]);
+            y += DEFAULT_SHAPE_SIZE.height * 1.5;
+        }
+    }
 
 }(document.getElementById("canvas")));
