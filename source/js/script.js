@@ -38,7 +38,6 @@
             y2 = -y2;
         } 
 
-        context.strokeStyle = TRANSITION.COLOR;
         context.beginPath();
         context.moveTo(tox + x2, toy + y2);
         context.lineTo(tox, toy);
@@ -112,12 +111,17 @@
         }
     }
 
-    function drawTransitions(context, pointx, pointy, targets){
+    function drawTransitions(context, pointx, pointy, targets, selectedtarget){
         context.strokeStyle = TRANSITION.COLOR;
         for (var idx = 0; idx < targets.length; idx++) {
             var target = targets[idx];
             var startPoint = calculateNewTransitionPoint(pointx, pointy, target.x, target.y);
             var endPoint = calculateNewTransitionPoint(target.x, target.y, pointx, pointy);
+
+            if(target[idx]===selectedtarget){
+                context.strokeStyle = "red";
+            }
+
             drawLine(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
             drawArrow(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y, true);
         }
@@ -235,99 +239,80 @@
 
     function calculateYCoordinate(px1, py1, px2, py2, x ){
         var k = (py2-py1) / (px2 - px1);
-        return (x -px2) * k + py2;
+        return (x - px2) * k + py2;
     }
 
     function calculateXCoordinate(px1, py1, px2, py2, y ){
-        //var k = (py2-py1) / (px2 - px1);
         return ( y + px2 * (py2-py1)/(px2-px1) - py2) * (px2 - px1) / (py2-py1);
     }
 
-    function isPointOnStraight(startpoint, endpoint, checkpoint){
-return;
-        var hy1 =  calculateYCoordinate( startpoint.x, startpoint.y - 3, endpoint.x, endpoint.y - 3, checkpoint.x );
-        var hy2 =  calculateYCoordinate( startpoint.x, startpoint.y + 3, endpoint.x, endpoint.y + 3, checkpoint.x );
+    function isPointOnStraight(node, transition, point){
+     
+        var firstIntersectionPoint = {
+            x: point.x,
+            y: calculateYCoordinate(transition.x, transition.y,node.x,node.y, point.x)
+        };
 
-        var hx1 =  calculateXCoordinate( startpoint.x - 3, startpoint.y, endpoint.x - 3, endpoint.y, checkpoint.y );
-        var hx2 =  calculateXCoordinate( startpoint.x + 3, startpoint.y, endpoint.x + 3, endpoint.y, checkpoint.y );
+        var secondIntersectionPoint = {
+            x: calculateXCoordinate(transition.x, transition.y,node.x,node.y, point.y),
+            y: point.y
+        };
 
-    //console.info(hx1, hy1, hx2, hy2, checkpoint.x, checkpoint.y);
-if(hy1 <= checkpoint.y && hy2 >= checkpoint.y)
-            console.info("1");
+        var lengthVector1 = calculateVectorLength(
+            point.x - firstIntersectionPoint.x,
+            point.y - firstIntersectionPoint.y
+        );
 
-            if(hx1 <= checkpoint.x && hx2 >= checkpoint.x)
-            console.info("2");
+        var lengthVector2 = calculateVectorLength(
+            point.x - secondIntersectionPoint.x,
+            point.y - secondIntersectionPoint.y
+        );
 
-        if(hy1 <= checkpoint.y && hy2 >= checkpoint.y && hx1 <= checkpoint.x && hx2 >= checkpoint.x){
-            console.info("FOUND");
-        }
-
-        /*
-        
-y = x*k +c;
-
-
-(spy2 - spy1)/(spx2 - spx1) = k
-
-spy2 - spx2 * (spy2-spy1)/(spx2-spx1) =  c
-
-y = x * (spy2 - spy1)/(spx2 - spx1) + spy2 - spx2 * (spy2-spy1)/(spx2-spx1);
-
-x = (y + spx2 * (spy2-spy1)/(spx2-spx1) - spy2) * (spx2 - spx1) / (spy2 - spy1);
-
-
-//y = x * (spy2 - spy1)/(spx2 - spx1) + spy2 - spx2 * (spy2-spy1)/(spx2-spx1);
-
- 
-//spy2 = spx2 * (spy2-spy1)/(spx2-spx1) + c 
-//spy2 = spx2 * k + spy1 - spx1 * k
-
-
-
-
-         */
-
+        return (lengthVector2<5 || lengthVector1<5);
     }
 
-    canvas.addEventListener("mousedown", function(event){
-        if(event.ctrlKey){
-            WorkflowEngine.ui.newTransaction(event.x , event.y);
-        } else {
-            WorkflowEngine.ui.beginDragging(event.x , event.y);
-            //WorkflowEngine.selectTransition(event.x , event.y);
-        }       
-    });
+    function handleUIEvents(event){
+        var x = event.offsetX;
+        var y = event.offsetY;
+        var isCtrlPressed = event.ctrlKey;
 
-    canvas.addEventListener("mousemove", function(event){
-        if(WorkflowEngine.ui.isDragging){
-            WorkflowEngine.ui.dragging(event.x, event.y)
+        switch(event.type){
+            case "mousedown":
+                if(isCtrlPressed){
+                    WorkflowEngine.ui.newTransaction(x, y);
+                } else {
+                    WorkflowEngine.ui.beginDragging(x, y);
+                    WorkflowEngine.ui.selectTransition(x, y);
+                }   
+                break;
+            case "mousemove":
+                if(WorkflowEngine.ui.isDragging){
+                    WorkflowEngine.ui.dragging(x, y);
+                }
+                break;
+            case "mouseup":
+            case "mouseout":
+                WorkflowEngine.ui.endDragging();
+                break;
+
         }
-    });
+    }
 
-    canvas.addEventListener("mouseup", function(event){
-        if(!event.ctrlKey){
-            WorkflowEngine.ui.endDragging();
-        }
-    });
-
-    canvas.addEventListener("mouseout", function(event){
-        if(!event.ctrlKey){
-            WorkflowEngine.ui.endDragging();
-        }
-    });
-
+    canvas.addEventListener("mousedown", handleUIEvents);
+    canvas.addEventListener("mousemove", handleUIEvents);
+    canvas.addEventListener("mouseup", handleUIEvents);
+    canvas.addEventListener("mouseout", handleUIEvents);
+ 
 // HELPER
 
     var helper = 0;
 
     canvas.addEventListener("dblclick", function(event){
-        WorkflowEngine.createNewNode({name: "created " + (helper++) , type: SHAPES.STATE, x:event.x, y:event.y, targets:[] });
-        WorkflowEngine.render();
+     /*   WorkflowEngine.createNewNode({name: "created " + (helper++) , type: SHAPES.STATE, x:event.x, y:event.y, targets:[] });
+        WorkflowEngine.render();*/
     });
 
-    window.collisionList = []; 
-
-    var demoWorkflowNodes = [ 
+    /*var demoWorkflowNodes = [ 
         {name: "created", type: SHAPES.STATE, x:25, y:20, targets:["review"] },
         {name: "review",type: SHAPES.TASK, x:25, y:180, targets:["if"]},
         {name: "approved",type: SHAPES.STATE, x:350, y:20, targets:[]},
@@ -337,12 +322,32 @@ x = (y + spx2 * (spy2-spy1)/(spx2-spx1) - spy2) * (spx2 - spx1) / (spy2 - spy1);
         {name: "safe state",type: SHAPES.STATE, x:195,y:75, targets:["join"]},
         {name: "xor",type: SHAPES.JOIN, x:350, y:140, targets:["approved"]},
         {name: "error",type: SHAPES.STATE, x:210, y:260, targets:["xor"]}
-    ];
+    ];*/
+
+    var demoWorkflowNodes = [ 
+        {name: "start", type: SHAPES.STATE, x:25, y:20, targets:["end"] },
+        {name: "end",type: SHAPES.TASK, x:150, y:100, targets:[]}];
 
     var WorkflowEngine = {
         ui:{
             isDragging: false,
             isTransitionStarted: false,
+            selectTransition: function(x ,y){
+                delete WorkflowEngine.selectedTransition;
+                for(var idx = 0; idx < WorkflowEngine.transitionList.length; idx++){
+                    var transition = WorkflowEngine.transitionList[idx];
+                    var canSelect = isPointOnStraight(
+                        transition.node, 
+                        transition.transition,
+                        { x: x, y: y}
+                    );
+                    if(canSelect){
+                        WorkflowEngine.selectedTransition = {node: transition.node, transition: transition.transition.name};
+                        break;
+                    }
+                }
+                WorkflowEngine.render();
+            },
             newTransaction: function(x, y){
                 var selectedItem = WorkflowEngine.selectItem(x, y);
 
@@ -387,12 +392,16 @@ x = (y + spx2 * (spy2-spy1)/(spx2-spx1) - spy2) * (spx2 - spx1) / (spy2 - spy1);
                 WorkflowEngine.ui.isTransitionStarted = false;
                 delete WorkflowEngine.ui.transitionStartItem;
                 delete WorkflowEngine.selectedItem;
+            },
+            clearTransitionSelection: function(){
+                delete WorkflowEngine.selectedTransition;
             }
         },
         init: function (canvas, workflow) {
             canvas.width = CANVAS_SIZE.width;
             canvas.height = CANVAS_SIZE.height;
             this.workflow = workflow;
+            this.loadTransitionList();
             this.context = canvas.getContext("2d");
         },
         selectItem: function(x, y){
@@ -403,13 +412,17 @@ x = (y + spx2 * (spy2-spy1)/(spx2-spx1) - spy2) * (spx2 - spx1) / (spy2 - spy1);
                 });
             return this.selectedItem;
         },
-        selectTransition: function(x ,y){
-         return;
-            for(var idx=0; idx<window.collisionList.length; idx++){
-                var transition = window.collisionList[idx];
-                console.info("---");
-                isPointOnStraight({x:transition.startx, y:transition.starty},{x:transition.endx, y:transition.endy}, {x:x, y:y})
-                console.info("---");
+        loadTransitionList: function(){
+             this.transitionList = [];
+             for (var idx = 0; idx < this.workflow.length; idx++) {
+                var item = this.workflow[idx];
+                var transitionsPoints = this.getTransitionsEndPoints(item.targets);
+                this.transitionList = this.transitionList.concat(transitionsPoints.map(
+                    (transition) => {
+                        return {
+                            node:item, transition:transition 
+                        };
+                }));
             }
         },
         createNewNode: function(node){
@@ -417,21 +430,20 @@ x = (y + spx2 * (spy2-spy1)/(spx2-spx1) - spy2) * (spx2 - spx1) / (spy2 - spy1);
         },
         render: function(){
             this.context.clearRect(0, 0, CANVAS_SIZE.width, CANVAS_SIZE.height);
-            //window.collisionList = [];
+            this.loadTransitionList();
             for (var idx = 0; idx < this.workflow.length; idx++) {
                 var item = this.workflow[idx];
+                var selectedTarget = "";
                 var transitionsPoints = this.getTransitionsEndPoints(item.targets);
 
-               /* window.collisionList = window.collisionList.concat(transitionsPoints.map(
-                    (trans) => {
-                        return {
-                            startx: item.x, starty: item.y, endx: trans.x, endy: trans.y
-                        };
-                }));*/
-                drawTransitions(this.context, item.x, item.y, transitionsPoints); //+100 LEGEND
-                drawShape(this.context, item.x, item.y, item.type, item===this.selectedItem); //+100 LEGEND
+                if(this.selectedTransition && item === this.selectedTransition.node){
+                    console.info(selectedTarget);
+                    selectedTarget = this.selectedTransition.transition.name;
+                }
+
+                drawTransitions(this.context, item.x, item.y, transitionsPoints, selectedTarget);
+                drawShape(this.context, item.x, item.y, item.type, item===this.selectedItem);
             }
-             //drawLegend(this.context);
         },
         getTransitionsEndPoints: function(targets){
             return targets.map(
@@ -439,7 +451,7 @@ x = (y + spx2 * (spy2-spy1)/(spx2-spx1) - spy2) * (spx2 - spx1) / (spy2 - spy1);
                     var target = this.workflow.find((x)=>{
                         return x.name === item;
                     });
-                    return {x: target.x, y: target.y, name: target.name}; //+100 LEGEND
+                    return {x: target.x, y: target.y, name: target.name}; 
                 }
             );
         }
@@ -448,18 +460,6 @@ x = (y + spx2 * (spy2-spy1)/(spx2-spx1) - spy2) * (spx2 - spx1) / (spy2 - spy1);
     WorkflowEngine.init(canvas, demoWorkflowNodes);
     WorkflowEngine.render();
 
-    function drawLegend(context){
-        var x = DEFAULT_SHAPE_SIZE.width + 5;
-        var y = DEFAULT_SHAPE_SIZE.height;
-
-        context.strokeStyle = "black";
-        context.rect(5, 5, DEFAULT_SHAPE_SIZE.width*2 -10, CANVAS_SIZE.height -10);
-        context.stroke();
-
-        for(var shapeName in SHAPES){
-            drawShape(context, x, y, SHAPES[shapeName]);
-            y += DEFAULT_SHAPE_SIZE.height * 1.5;
-        }
-    }
+    window.w = WorkflowEngine;
 
 }(document.getElementById("canvas")));
