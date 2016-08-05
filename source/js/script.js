@@ -153,7 +153,6 @@
                 } else {
                     return { x: pointx + DEFAULT_SHAPE_SIZE.width/2, y: pointy};
                 }
-                break;
             case QUANDRANTS.Q1:
                 pointSlope = 
                     ((pointx + DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
@@ -172,7 +171,6 @@
                 } else {
                     return { x: pointx, y: pointy + DEFAULT_SHAPE_SIZE.height/2};
                 }
-                break;
             case QUANDRANTS.Q2:
                 pointSlope = 
                     ((pointx - DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
@@ -191,7 +189,6 @@
                 } else {
                     return { x: pointx - DEFAULT_SHAPE_SIZE.width/2, y: pointy };
                 }
-                break;
             case QUANDRANTS.Q3:
                 pointSlope = 
                     ((pointx - DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
@@ -210,7 +207,6 @@
                 } else {
                     return { x: pointx , y: pointy - DEFAULT_SHAPE_SIZE.height/2};
                 }
-                break;
             default:
                 throw {name:"Not Implemented", message:"Not Implemented"};
         }
