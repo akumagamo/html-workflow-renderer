@@ -3,8 +3,9 @@
 (function(canvas){
     const DEFAULT_SHAPE_SIZE = { width: 50, height: 20 };
     const SHAPES = { STATE: 0, TASK: 1, CONDITIONAL: 2, FORK: 3, JOIN: 4 };
+    const COLORS = { SELECTED_SHAPE: "gray" };
     const QUANDRANTS = { Q0: 0, Q1: 1, Q2: 2, Q3: 3, VERTICAL: 4, HORIZONTAL: 5 };
-    const TRANSITION = { COLOR: "black", ARROW_SIZE: 5, ARROW_FILL_COLOR: "white" };
+    const TRANSITION = { COLOR: "black", SELECTED_COLOR: "red", ARROW_SIZE: 5, ARROW_FILL_COLOR: "white", ARROW_IS_FILL_STYLE: true };
     const CANVAS_SIZE = {width: 500, height:500}; 
 
     function drawArrow (context, fromx, fromy, tox, toy, fullarrow) {
@@ -67,7 +68,7 @@
         var height = DEFAULT_SHAPE_SIZE.height;
         var width = DEFAULT_SHAPE_SIZE.width;
 
-        context.fillStyle = "gray";
+        context.fillStyle = COLORS.SELECTED_SHAPE;
 
         switch(type){
             case SHAPES.STATE: 
@@ -112,18 +113,16 @@
     }
 
     function drawTransitions(context, pointx, pointy, targets, selectedtarget){
-        context.strokeStyle = TRANSITION.COLOR;
+        
         for (var idx = 0; idx < targets.length; idx++) {
             var target = targets[idx];
             var startPoint = calculateNewTransitionPoint(pointx, pointy, target.x, target.y);
             var endPoint = calculateNewTransitionPoint(target.x, target.y, pointx, pointy);
 
-            if(target[idx]===selectedtarget){
-                context.strokeStyle = "red";
-            }
+            context.strokeStyle = target.name===selectedtarget ? TRANSITION.SELECTED_COLOR : TRANSITION.COLOR;
 
             drawLine(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
-            drawArrow(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y, true);
+            drawArrow(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y, TRANSITION.ARROW_IS_FILL_STYLE);
         }
     }
 
@@ -238,8 +237,10 @@
     }
 
     function calculateYCoordinate(px1, py1, px2, py2, x ){
+        var divisor = (px2 - px1);
         var k = (py2-py1) / (px2 - px1);
-        return (x - px2) * k + py2;
+       
+        return (x - px2) * (divisor===0?0:k) + py2;
     }
 
     function calculateXCoordinate(px1, py1, px2, py2, y ){
@@ -257,6 +258,63 @@
             x: calculateXCoordinate(transition.x, transition.y,node.x,node.y, point.y),
             y: point.y
         };
+
+        if(node.x < transition.x && transition.x < point.x){
+            firstIntersectionPoint = {
+                x: transition.x,
+                y: transition.y
+            };
+            firstIntersectionPoint = secondIntersectionPoint;
+        } else if(node.x > transition.x && node.x < point.x){
+            firstIntersectionPoint = {
+                x: node.x,
+                y: node.y
+            };
+            firstIntersectionPoint = secondIntersectionPoint;
+        } else if(node.x === transition.x) {
+            if(node.y < transition.y){
+                if(transition.y > point.y && point.y > node.y ){
+                    firstIntersectionPoint = {
+                        x: node.x,
+                        y: point.y
+                    };
+                    secondIntersectionPoint = {
+                        x: node.x,
+                        y: point.y
+                    };
+                }else{
+                    firstIntersectionPoint = {
+                        x: node.x,
+                        y: node.y
+                    };
+                    secondIntersectionPoint = {
+                        x: node.x,
+                        y: transition.y
+                    };
+                }
+            }
+            else {
+                if( node.y > point.y  && point.y > transition.y   ){
+                    firstIntersectionPoint = {
+                        x: node.x,
+                        y: point.y
+                    };
+                    secondIntersectionPoint = {
+                        x: node.x,
+                        y: point.y
+                    };
+                }else{
+                    firstIntersectionPoint = {
+                        x: node.x,
+                        y: node.y
+                    };
+                    secondIntersectionPoint = {
+                        x: node.x,
+                        y: transition.y
+                    };
+                }
+            }
+        }
 
         var lengthVector1 = calculateVectorLength(
             point.x - firstIntersectionPoint.x,
@@ -278,6 +336,7 @@
 
         switch(event.type){
             case "mousedown":
+                WorkflowEngine.ui.clearTransitionSelection();
                 if(isCtrlPressed){
                     WorkflowEngine.ui.newTransaction(x, y);
                 } else {
@@ -302,17 +361,8 @@
     canvas.addEventListener("mousemove", handleUIEvents);
     canvas.addEventListener("mouseup", handleUIEvents);
     canvas.addEventListener("mouseout", handleUIEvents);
- 
-// HELPER
 
-    var helper = 0;
-
-    canvas.addEventListener("dblclick", function(event){
-     /*   WorkflowEngine.createNewNode({name: "created " + (helper++) , type: SHAPES.STATE, x:event.x, y:event.y, targets:[] });
-        WorkflowEngine.render();*/
-    });
-
-    /*var demoWorkflowNodes = [ 
+    var demoWorkflowNodes = [ 
         {name: "created", type: SHAPES.STATE, x:25, y:20, targets:["review"] },
         {name: "review",type: SHAPES.TASK, x:25, y:180, targets:["if"]},
         {name: "approved",type: SHAPES.STATE, x:350, y:20, targets:[]},
@@ -322,18 +372,20 @@
         {name: "safe state",type: SHAPES.STATE, x:195,y:75, targets:["join"]},
         {name: "xor",type: SHAPES.JOIN, x:350, y:140, targets:["approved"]},
         {name: "error",type: SHAPES.STATE, x:210, y:260, targets:["xor"]}
-    ];*/
+    ];
 
-    var demoWorkflowNodes = [ 
+   /* var demoWorkflowNodes = [ 
         {name: "start", type: SHAPES.STATE, x:25, y:20, targets:["end"] },
         {name: "end",type: SHAPES.TASK, x:150, y:100, targets:[]}];
-
+*/
     var WorkflowEngine = {
         ui:{
             isDragging: false,
             isTransitionStarted: false,
             selectTransition: function(x ,y){
-                delete WorkflowEngine.selectedTransition;
+                if(WorkflowEngine.selectedItem)
+                    return;
+
                 for(var idx = 0; idx < WorkflowEngine.transitionList.length; idx++){
                     var transition = WorkflowEngine.transitionList[idx];
                     var canSelect = isPointOnStraight(
@@ -379,7 +431,7 @@
                 WorkflowEngine.render();
             },
             dragging: function(x, y){
-                WorkflowEngine.ui.dragItem.x = event.x;// LEGEND - 100;
+                WorkflowEngine.ui.dragItem.x = event.x;
                 WorkflowEngine.ui.dragItem.y = event.y;
                 WorkflowEngine.render();
             },
@@ -437,8 +489,7 @@
                 var transitionsPoints = this.getTransitionsEndPoints(item.targets);
 
                 if(this.selectedTransition && item === this.selectedTransition.node){
-                    console.info(selectedTarget);
-                    selectedTarget = this.selectedTransition.transition.name;
+                    selectedTarget = this.selectedTransition.transition;
                 }
 
                 drawTransitions(this.context, item.x, item.y, transitionsPoints, selectedTarget);
@@ -459,7 +510,5 @@
 
     WorkflowEngine.init(canvas, demoWorkflowNodes);
     WorkflowEngine.render();
-
     window.w = WorkflowEngine;
-
 }(document.getElementById("canvas")));
