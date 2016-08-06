@@ -43,7 +43,7 @@ https://github.com/akumagamo/html-workflow-renderer.git
 1) Initialize WorkflowEngine
 1) Invoke Render function 
 
-*Here is a link to a [mini Demo](https://raw.githubusercontent.com/akumagamo/html-workflow-renderer/master/source/index.html)*
+*Here is a link to a [mini Demo](https://rawgit.com/akumagamo/html-workflow-renderer/master/source/index.html)*
 
 ### Base Code Example
     var canvas = document.getElementById("canvas");
