@@ -353,6 +353,11 @@
             case "mouseout":
                 WorkflowEngine.ui.endDragging();
                 break;
+            case "keydown":
+                if(event.key === "Delete"){
+                     WorkflowEngine.deleteSelectedNode();
+                }
+                break;
 
         }
     }
@@ -361,7 +366,9 @@
     canvas.addEventListener("mousemove", handleUIEvents);
     canvas.addEventListener("mouseup", handleUIEvents);
     canvas.addEventListener("mouseout", handleUIEvents);
- 
+
+    document.addEventListener("keydown", handleUIEvents);
+
     var demoWorkflowNodes = [ 
         {name: "created", type: SHAPES.STATE, x:25, y:20, targets:["review"] },
         {name: "review",type: SHAPES.TASK, x:25, y:180, targets:["if"]},
@@ -449,6 +456,18 @@
                 delete WorkflowEngine.selectedTransition;
             }
         },
+        deleteSelectedNode: function(){
+
+            if(this.selectedItem !== undefined){
+                var selectedItemName = this.selectedItem.name;
+                this.workflow = this.workflow.map((item)=>{
+                    item.targets = item.targets.filter((x)=>x!==selectedItemName);
+                    if(item.name!==selectedItemName) 
+                        return item;
+                }).filter((item)=>item);
+                this.render();
+            }
+        },
         init: function (canvas, workflow) {
             canvas.width = CANVAS_SIZE.width;
             canvas.height = CANVAS_SIZE.height;
@@ -487,7 +506,7 @@
                 var item = this.workflow[idx];
                 var selectedTarget = "";
                 var transitionsPoints = this.getTransitionsEndPoints(item.targets);
-
+    
                 if(this.selectedTransition && item === this.selectedTransition.node){
                     selectedTarget = this.selectedTransition.transition;
                 }
@@ -502,7 +521,7 @@
                     var target = this.workflow.find((x)=>{
                         return x.name === item;
                     });
-                    return {x: target.x, y: target.y, name: target.name}; 
+                    return target?{x: target.x, y: target.y, name: target.name}:undefined; 
                 }
             );
         }
