@@ -2,7 +2,7 @@
 ## Versionnumber 0.1.0 (2016-08-06) Alpha
 (***Documentation last update 2016-08-06 15:30***)  
 
-Workflow Render Engine (eventually for Liferay) 
+Workflow Render Engine (eventually for Liferay Kaleo Workflow) 
 
 ![Screenshot from a workflow](https://raw.githubusercontent.com/akumagamo/html-workflow-renderer/master/readme/screenshot_01.png "Screenshot from a workflow")
 
