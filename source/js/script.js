@@ -1,16 +1,130 @@
 "use strict";
 
 (function(canvas){
-    const DEFAULT_SHAPE_SIZE = { width: 50, height: 20 };
-    const SHAPES = { STATE: 0, TASK: 1, CONDITIONAL: 2, FORK: 3, JOIN: 4 };
-    const COLORS = { SELECTED_SHAPE: "gray" };
-    const QUANDRANTS = { Q0: 0, Q1: 1, Q2: 2, Q3: 3, VERTICAL: 4, HORIZONTAL: 5 };
-    const TRANSITION = { COLOR: "black", SELECTED_COLOR: "red", ARROW_SIZE: 5, ARROW_FILL_COLOR: "white", ARROW_IS_FILL_STYLE: true };
     const CANVAS_SIZE = { width: 500, height:500 }; 
+    const COLORS = { SELECTED_SHAPE: "gray" };
     const CURSORS = { DEFAULT: "default", CREATE_TRANSITION: "crosshair"};
+    const DEFAULT_SHAPE_SIZE = { width: 50, height: 20 };
     const EVENT_KEYS = { DELETE: "Delete" };
-
+    const QUANDRANTS = { Q0: 0, Q1: 1, Q2: 2, Q3: 3, VERTICAL: 4, HORIZONTAL: 5 };
+    const SHAPES = { STATE: 0, TASK: 1, CONDITIONAL: 2, FORK: 3, JOIN: 4 };
+    const TRANSITION = { COLOR: "black", SELECTED_COLOR: "red", ARROW_SIZE: 5, ARROW_FILL_COLOR: "white", ARROW_IS_FILL_STYLE: true };
     const UI_ACTION_MODE = { UNSELECTED:0, NEW_TRANSITION:1, NODE_SELECT:2, TRANSITION_SELECT:3, DRAGGING: 4 };
+
+    function calculateNewTransitionPoint(pointx, pointy, targetx, targety){
+        var s;
+        var newX;
+        var newY;
+        var pointSlope;
+        var targetSlope = (targetx - pointx) / (targety - pointy);
+
+        switch(calculateQuadrant(pointx, pointy, targetx, targety)){
+            case QUANDRANTS.Q0:
+                pointSlope = 
+                    ((pointx + DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
+                    ((pointy - DEFAULT_SHAPE_SIZE.height / 2) - pointy);
+
+                if(Math.abs(pointy-targety)<5){
+                    return { x: pointx + DEFAULT_SHAPE_SIZE.width/2, y: pointy};
+                } else if(pointSlope < targetSlope){
+                    s = (pointy - DEFAULT_SHAPE_SIZE.height/2 - pointy) / (targety - pointy) ;
+                    newX = pointx + s * (targetx - pointx) ;
+                    return { x: newX, y: pointy - DEFAULT_SHAPE_SIZE.height/2};
+                } else if (pointSlope > targetSlope){
+                    s = (pointx + DEFAULT_SHAPE_SIZE.width/2 - pointx) / (targetx - pointx) ;
+                    newY = pointy + s * (targety - pointy) ;
+                    return { x: pointx + DEFAULT_SHAPE_SIZE.width/2, y: newY};
+                } else {
+                    return { x: pointx + DEFAULT_SHAPE_SIZE.width/2, y: pointy};
+                }
+            case QUANDRANTS.Q1:
+                pointSlope = 
+                    ((pointx + DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
+                    ((pointy + DEFAULT_SHAPE_SIZE.height / 2) - pointy);
+
+                if(Math.abs(pointx-targetx)<5){
+                    return { x: pointx, y: pointy + DEFAULT_SHAPE_SIZE.height/2};
+                } else if(pointSlope > targetSlope){
+                    s = (pointy + DEFAULT_SHAPE_SIZE.height/2 - pointy) / (targety - pointy) ;
+                    newX = pointx + s * (targetx - pointx) ;
+                    return { x: newX, y: pointy + DEFAULT_SHAPE_SIZE.height/2 };
+                } else if(pointSlope < targetSlope) {
+                    s = (pointx + DEFAULT_SHAPE_SIZE.width/2 - pointx) / (targetx - pointx) ;
+                    newY = pointy + s * (targety - pointy) ;
+                    return { x: pointx + DEFAULT_SHAPE_SIZE.width/2, y: newY };
+                } else {
+                    return { x: pointx, y: pointy + DEFAULT_SHAPE_SIZE.height/2};
+                }
+            case QUANDRANTS.Q2:
+                pointSlope = 
+                    ((pointx - DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
+                    ((pointy + DEFAULT_SHAPE_SIZE.height / 2) - pointy);
+
+                if(Math.abs(pointy-targety)<5){
+                    return { x: pointx - DEFAULT_SHAPE_SIZE.width/2, y: pointy };
+                } else if(pointSlope < targetSlope) {
+                    s = (pointy + DEFAULT_SHAPE_SIZE.height/2 - pointy) / (targety - pointy) ;
+                    newX = pointx + s * (targetx - pointx) ;
+                    return { x: newX, y: pointy + DEFAULT_SHAPE_SIZE.height/2 };
+                } else if(pointSlope > targetSlope) {
+                    s = (pointx - DEFAULT_SHAPE_SIZE.width/2 - pointx) / (targetx - pointx) ;
+                    newY = pointy + s * (targety - pointy) ;
+                    return { x: pointx - DEFAULT_SHAPE_SIZE.width/2, y: newY };
+                } else {
+                    return { x: pointx - DEFAULT_SHAPE_SIZE.width/2, y: pointy };
+                }
+            case QUANDRANTS.Q3:
+                pointSlope = 
+                    ((pointx - DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
+                    ((pointy - DEFAULT_SHAPE_SIZE.height / 2) - pointy);
+
+                if(Math.abs(pointx-targetx)<10){
+                    return { x: pointx , y: pointy - DEFAULT_SHAPE_SIZE.height/2};
+                } else if(pointSlope > targetSlope){
+                    s = (pointy - DEFAULT_SHAPE_SIZE.height/2 - pointy) / (targety - pointy) ;
+                    newX = pointx + s * (targetx - pointx) ;
+                    return { x: newX, y: pointy - DEFAULT_SHAPE_SIZE.height/2 };
+                } else if(pointSlope < targetSlope){
+                    s = (pointx - DEFAULT_SHAPE_SIZE.width/2 - pointx) / (targetx - pointx) ;
+                    newY = pointy + s * (targety - pointy) ;
+                    return { x: pointx - DEFAULT_SHAPE_SIZE.width/2, y: newY };
+                } else {
+                    return { x: pointx , y: pointy - DEFAULT_SHAPE_SIZE.height/2};
+                }
+            default:
+                throw {name:"Not Implemented", message:"Not Implemented"};
+        }
+    }
+
+    function calculateQuadrant(pointx, pointy, targetx, targety) {
+        var quadrant;
+        if (pointx < targetx  && pointy >= targety) {
+            quadrant = QUANDRANTS.Q0;
+        } else if (pointx <= targetx && pointy < targety) {
+            quadrant = QUANDRANTS.Q1;
+        } else if (pointx > targetx  && pointy <= targety) {
+            quadrant = QUANDRANTS.Q2;
+        } else if (pointx >= targetx  && pointy > targety) {
+            quadrant = QUANDRANTS.Q3;
+        } else {
+            throw {name:"Not Implemented", message:"Not Implemented"};
+        }
+        return quadrant;
+    }
+
+    function calculateVectorLength (x, y) {
+        return Math.sqrt(Math.pow(x,2) + Math.pow(y,2));
+    }
+
+    function calculateXCoordinate(px1, py1, px2, py2, y ){
+        return ( y + px2 * (py2-py1)/(px2-px1) - py2) * (px2 - px1) / (py2-py1);
+    }
+    
+    function calculateYCoordinate(px1, py1, px2, py2, x ){
+        var divisor = (px2 - px1);
+        var k = (py2-py1) / (px2 - px1);
+        return (x - px2) * (divisor===0?0:k) + py2;
+    }
 
     function drawArrow (context, fromx, fromy, tox, toy, fullarrow) {
         var arrowSize = TRANSITION.ARROW_SIZE;
@@ -128,121 +242,6 @@
             drawLine(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y);
             drawArrow(context, startPoint.x, startPoint.y, endPoint.x, endPoint.y, TRANSITION.ARROW_IS_FILL_STYLE);
         }
-    }
-
-    function calculateNewTransitionPoint(pointx, pointy, targetx, targety){
-        var s;
-        var newX;
-        var newY;
-        var pointSlope;
-        var targetSlope = (targetx - pointx) / (targety - pointy);
-
-        switch(calculateQuadrant(pointx, pointy, targetx, targety)){
-            case QUANDRANTS.Q0:
-                pointSlope = 
-                    ((pointx + DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
-                    ((pointy - DEFAULT_SHAPE_SIZE.height / 2) - pointy);
-
-                if(Math.abs(pointy-targety)<5){
-                    return { x: pointx + DEFAULT_SHAPE_SIZE.width/2, y: pointy};
-                } else if(pointSlope < targetSlope){
-                    s = (pointy - DEFAULT_SHAPE_SIZE.height/2 - pointy) / (targety - pointy) ;
-                    newX = pointx + s * (targetx - pointx) ;
-                    return { x: newX, y: pointy - DEFAULT_SHAPE_SIZE.height/2};
-                } else if (pointSlope > targetSlope){
-                    s = (pointx + DEFAULT_SHAPE_SIZE.width/2 - pointx) / (targetx - pointx) ;
-                    newY = pointy + s * (targety - pointy) ;
-                    return { x: pointx + DEFAULT_SHAPE_SIZE.width/2, y: newY};
-                } else {
-                    return { x: pointx + DEFAULT_SHAPE_SIZE.width/2, y: pointy};
-                }
-            case QUANDRANTS.Q1:
-                pointSlope = 
-                    ((pointx + DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
-                    ((pointy + DEFAULT_SHAPE_SIZE.height / 2) - pointy);
-
-                if(Math.abs(pointx-targetx)<5){
-                    return { x: pointx, y: pointy + DEFAULT_SHAPE_SIZE.height/2};
-                } else if(pointSlope > targetSlope){
-                    s = (pointy + DEFAULT_SHAPE_SIZE.height/2 - pointy) / (targety - pointy) ;
-                    newX = pointx + s * (targetx - pointx) ;
-                    return { x: newX, y: pointy + DEFAULT_SHAPE_SIZE.height/2 };
-                } else if(pointSlope < targetSlope) {
-                    s = (pointx + DEFAULT_SHAPE_SIZE.width/2 - pointx) / (targetx - pointx) ;
-                    newY = pointy + s * (targety - pointy) ;
-                    return { x: pointx + DEFAULT_SHAPE_SIZE.width/2, y: newY };
-                } else {
-                    return { x: pointx, y: pointy + DEFAULT_SHAPE_SIZE.height/2};
-                }
-            case QUANDRANTS.Q2:
-                pointSlope = 
-                    ((pointx - DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
-                    ((pointy + DEFAULT_SHAPE_SIZE.height / 2) - pointy);
-
-                if(Math.abs(pointy-targety)<5){
-                    return { x: pointx - DEFAULT_SHAPE_SIZE.width/2, y: pointy };
-                } else if(pointSlope < targetSlope) {
-                    s = (pointy + DEFAULT_SHAPE_SIZE.height/2 - pointy) / (targety - pointy) ;
-                    newX = pointx + s * (targetx - pointx) ;
-                    return { x: newX, y: pointy + DEFAULT_SHAPE_SIZE.height/2 };
-                } else if(pointSlope > targetSlope) {
-                    s = (pointx - DEFAULT_SHAPE_SIZE.width/2 - pointx) / (targetx - pointx) ;
-                    newY = pointy + s * (targety - pointy) ;
-                    return { x: pointx - DEFAULT_SHAPE_SIZE.width/2, y: newY };
-                } else {
-                    return { x: pointx - DEFAULT_SHAPE_SIZE.width/2, y: pointy };
-                }
-            case QUANDRANTS.Q3:
-                pointSlope = 
-                    ((pointx - DEFAULT_SHAPE_SIZE.width / 2) - pointx) / 
-                    ((pointy - DEFAULT_SHAPE_SIZE.height / 2) - pointy);
-
-                if(Math.abs(pointx-targetx)<10){
-                    return { x: pointx , y: pointy - DEFAULT_SHAPE_SIZE.height/2};
-                } else if(pointSlope > targetSlope){
-                    s = (pointy - DEFAULT_SHAPE_SIZE.height/2 - pointy) / (targety - pointy) ;
-                    newX = pointx + s * (targetx - pointx) ;
-                    return { x: newX, y: pointy - DEFAULT_SHAPE_SIZE.height/2 };
-                } else if(pointSlope < targetSlope){
-                    s = (pointx - DEFAULT_SHAPE_SIZE.width/2 - pointx) / (targetx - pointx) ;
-                    newY = pointy + s * (targety - pointy) ;
-                    return { x: pointx - DEFAULT_SHAPE_SIZE.width/2, y: newY };
-                } else {
-                    return { x: pointx , y: pointy - DEFAULT_SHAPE_SIZE.height/2};
-                }
-            default:
-                throw {name:"Not Implemented", message:"Not Implemented"};
-        }
-    }
-
-    function calculateQuadrant(pointx, pointy, targetx, targety) {
-        var quadrant;
-        if (pointx < targetx  && pointy >= targety) {
-            quadrant = QUANDRANTS.Q0;
-        } else if (pointx <= targetx && pointy < targety) {
-            quadrant = QUANDRANTS.Q1;
-        } else if (pointx > targetx  && pointy <= targety) {
-            quadrant = QUANDRANTS.Q2;
-        } else if (pointx >= targetx  && pointy > targety) {
-            quadrant = QUANDRANTS.Q3;
-        } else {
-            throw {name:"Not Implemented", message:"Not Implemented"};
-        }
-        return quadrant;
-    }
-
-    function calculateVectorLength (x, y) {
-        return Math.sqrt(Math.pow(x,2) + Math.pow(y,2));
-    }
-
-    function calculateYCoordinate(px1, py1, px2, py2, x ){
-        var divisor = (px2 - px1);
-        var k = (py2-py1) / (px2 - px1);
-        return (x - px2) * (divisor===0?0:k) + py2;
-    }
-
-    function calculateXCoordinate(px1, py1, px2, py2, y ){
-        return ( y + px2 * (py2-py1)/(px2-px1) - py2) * (px2 - px1) / (py2-py1);
     }
 
     function isPointOnStraight(transition, point){
@@ -547,5 +546,7 @@
 
     WorkflowEngine.init(canvas, demoWorkflowNodes);
     WorkflowEngine.render();
+    
+    //HELPER
     window.w = WorkflowEngine;
 }(document.getElementById("canvas")));
