@@ -6,7 +6,11 @@
     const COLORS = { SELECTED_SHAPE: "gray" };
     const QUANDRANTS = { Q0: 0, Q1: 1, Q2: 2, Q3: 3, VERTICAL: 4, HORIZONTAL: 5 };
     const TRANSITION = { COLOR: "black", SELECTED_COLOR: "red", ARROW_SIZE: 5, ARROW_FILL_COLOR: "white", ARROW_IS_FILL_STYLE: true };
-    const CANVAS_SIZE = {width: 500, height:500}; 
+    const CANVAS_SIZE = { width: 500, height:500 }; 
+    const CURSORS = { DEFAULT: "default", CREATE_TRANSITION: "crosshair"};
+    const EVENT_KEYS = { DELETE: "Delete" };
+
+    const UI_ACTION_MODE = { UNSELECTED:0, NEW_TRANSITION:1, NODE_SELECT:2, TRANSITION_SELECT:3, DRAGGING: 4 };
 
     function drawArrow (context, fromx, fromy, tox, toy, fullarrow) {
         var arrowSize = TRANSITION.ARROW_SIZE;
@@ -241,76 +245,78 @@
         return ( y + px2 * (py2-py1)/(px2-px1) - py2) * (px2 - px1) / (py2-py1);
     }
 
-    function isPointOnStraight(node, transition, point){
-     
+    function isPointOnStraight(transition, point){
+        var startPoint = transition.node;
+        var stopPoint = transition.transition;
+
         var firstIntersectionPoint = {
             x: point.x,
-            y: calculateYCoordinate(transition.x, transition.y,node.x,node.y, point.x)
+            y: calculateYCoordinate(stopPoint.x, stopPoint.y,startPoint.x,startPoint.y, point.x)
         };
 
         var secondIntersectionPoint = {
-            x: calculateXCoordinate(transition.x, transition.y,node.x,node.y, point.y),
+            x: calculateXCoordinate(stopPoint.x, stopPoint.y,startPoint.x,startPoint.y, point.y),
             y: point.y
         };
 
         if(
-            (node.x < transition.x && transition.x < point.x) ||
-            (node.x > transition.x && transition.x > point.x)
+            (startPoint.x < stopPoint.x && stopPoint.x < point.x) ||
+            (startPoint.x > stopPoint.x && stopPoint.x > point.x)
         ){
             firstIntersectionPoint = {
-                x: transition.x,
-                y: transition.y
+                x: stopPoint.x,
+                y: stopPoint.y
             };
             secondIntersectionPoint = firstIntersectionPoint;
         } else if(
-            (node.x > transition.x && node.x < point.x) ||
-            (node.x < transition.x && node.x > point.x)
+            (startPoint.x > stopPoint.x && startPoint.x < point.x) ||
+            (startPoint.x < stopPoint.x && startPoint.x > point.x)
         ){
             firstIntersectionPoint = {
-                x: node.x,
-                y: node.y
+                x: startPoint.x,
+                y: startPoint.y
             };
             secondIntersectionPoint = firstIntersectionPoint;
-        } else if(node.x === transition.x) {
-            if(node.y < transition.y){
-                if(transition.y > point.y && point.y > node.y ){
+        } else if(startPoint.x === stopPoint.x) {
+            if(startPoint.y < stopPoint.y){
+                if(stopPoint.y > point.y && point.y > startPoint.y ){
                     firstIntersectionPoint = {
-                        x: node.x,
+                        x: startPoint.x,
                         y: point.y
                     };
                     secondIntersectionPoint = {
-                        x: node.x,
+                        x: startPoint.x,
                         y: point.y
                     };
                 }else{
                     firstIntersectionPoint = {
-                        x: node.x,
-                        y: node.y
+                        x: startPoint.x,
+                        y: startPoint.y
                     };
                     secondIntersectionPoint = {
-                        x: node.x,
-                        y: transition.y
+                        x: startPoint.x,
+                        y: stopPoint.y
                     };
                 }
             }
             else {
-                if( node.y > point.y  && point.y > transition.y   ){
+                if( startPoint.y > point.y  && point.y > stopPoint.y   ){
                     firstIntersectionPoint = {
-                        x: node.x,
+                        x: startPoint.x,
                         y: point.y
                     };
                     secondIntersectionPoint = {
-                        x: node.x,
+                        x: startPoint.x,
                         y: point.y
                     };
                 }else{
                     firstIntersectionPoint = {
-                        x: node.x,
-                        y: node.y
+                        x: startPoint.x,
+                        y: startPoint.y
                     };
                     secondIntersectionPoint = {
-                        x: node.x,
-                        y: transition.y
+                        x: startPoint.x,
+                        y: stopPoint.y
                     };
                 }
             }
@@ -336,30 +342,22 @@
 
         switch(event.type){
             case "mousedown":
-                WorkflowEngine.ui.clearTransitionSelection();
-                if(isCtrlPressed){
-                    WorkflowEngine.ui.newTransaction(x, y);
-                } else {
-                    WorkflowEngine.ui.beginDragging(x, y);
-                    WorkflowEngine.ui.selectTransition(x, y);
-                }   
+                WorkflowEngine.ui.selectItem(x, y, isCtrlPressed);
                 break;
             case "mousemove":
-                if(WorkflowEngine.ui.isDragging){
-                    WorkflowEngine.ui.dragging(x, y);
-                }
+                WorkflowEngine.ui.dragNodeTo(x, y);
                 break;
             case "mouseup":
             case "mouseout":
-                WorkflowEngine.ui.endDragging();
+                WorkflowEngine.ui.clearDragging();
                 break;
             case "keydown":
-                if(event.key === "Delete"){
-                     WorkflowEngine.deleteSelectedNode();
+                if(event.key === EVENT_KEYS.DELETE){
+                     WorkflowEngine.ui.deletedItem();
                 }
                 break;
-
         }
+        WorkflowEngine.ui.updateCanvas();
     }
 
     canvas.addEventListener("mousedown", handleUIEvents);
@@ -387,101 +385,126 @@
 */
     var WorkflowEngine = {
         ui:{
-            isDragging: false,
-            isTransitionStarted: false,
-            selectTransition: function(x ,y){
-                if(WorkflowEngine.selectedItem)
-                    return;
+            currentMode: UI_ACTION_MODE.UNSELECTED,
+            deletedItem: function(){
+                WorkflowEngine.deleteSelectedTransition();
+                WorkflowEngine.deleteSelectedNode();
+            },
+            beginDragging: function(x, y){
+                WorkflowEngine.ui.clearTransition();
+                WorkflowEngine.selectItem(x, y);
+                WorkflowEngine.ui.currentMode =  WorkflowEngine.isANodeSelected() ? 
+                    UI_ACTION_MODE.DRAGGING : UI_ACTION_MODE.UNSELECTED;
+            },
+            clearDragging: function(){
+                if(WorkflowEngine.ui.currentMode === UI_ACTION_MODE.DRAGGING){
+                    WorkflowEngine.ui.currentMode = WorkflowEngine.isANodeSelected() ? UI_ACTION_MODE.NODE_SELECT : UI_ACTION_MODE.UNSELECTED;
+                }
+            },
+            clearSelectedItem: function(){
+                this.clearTransition();
+                this.clearTransitionSelection();
+                this.clearDragging();      
+            },
+            clearTransition: function(){
+                canvas.style.cursor = CURSORS.DEFAULT;
+                WorkflowEngine.ui.currentMode = WorkflowEngine.isANodeSelected() ? UI_ACTION_MODE.NODE_SELECT : UI_ACTION_MODE.UNSELECTED;
+                delete WorkflowEngine.transitionStartPoint;
+            },
+            clearTransitionSelection: function(){
+                WorkflowEngine.ui.currentMode = WorkflowEngine.isANodeSelected() ? UI_ACTION_MODE.NODE_SELECT : UI_ACTION_MODE.UNSELECTED;
+                delete WorkflowEngine.selectedTransition;
+            },
+            dragNodeTo: function(x, y){
+                if(WorkflowEngine.ui.currentMode === UI_ACTION_MODE.DRAGGING){
+                    WorkflowEngine.selectedItem.x = x;
+                    WorkflowEngine.selectedItem.y = y;
+                }
+            },
+            newTransition: function(x, y){
+                canvas.style.cursor = CURSORS.CREATE_TRANSITION;
+                
+                WorkflowEngine.selectItem(x, y);
 
+                if(WorkflowEngine.isANodeSelected()){
+                    if(WorkflowEngine.ui.currentMode === UI_ACTION_MODE.NEW_TRANSITION){
+                        WorkflowEngine.transitionStartPoint.targets.push(WorkflowEngine.selectedItem.name);
+                        WorkflowEngine.ui.clearTransition();     
+                    } else {
+                        WorkflowEngine.transitionStartPoint = WorkflowEngine.selectedItem;
+                        WorkflowEngine.ui.currentMode = UI_ACTION_MODE.NEW_TRANSITION;
+                    }
+                } else {
+                    WorkflowEngine.ui.clearTransition();               
+                }
+            },
+            selectItem: function(x, y, transitionmode){
+                if(transitionmode){
+                    WorkflowEngine.ui.newTransition(x, y);
+                } else {
+                    WorkflowEngine.ui.clearSelectedItem();
+                    WorkflowEngine.ui.beginDragging(x, y);
+                    if(!WorkflowEngine.selectedItem){
+                        WorkflowEngine.ui.selectTransition(x, y);
+                    }
+                }
+            },
+            selectTransition: function(x ,y){
                 for(var idx = 0; idx < WorkflowEngine.transitionList.length; idx++){
                     var transition = WorkflowEngine.transitionList[idx];
                     var canSelect = isPointOnStraight(
-                        transition.node, 
-                        transition.transition,
+                        transition,
                         { x: x, y: y}
                     );
                     if(canSelect){
                         WorkflowEngine.selectedTransition = {node: transition.node, transition: transition.transition.name};
+                        WorkflowEngine.ui.currentMode =  UI_ACTION_MODE.TRANSITION_SELECT;
                         break;
                     }
                 }
+            },
+            updateCanvas: function() {
                 WorkflowEngine.render();
-            },
-            newTransaction: function(x, y){
-                var selectedItem = WorkflowEngine.selectItem(x, y);
-
-                canvas.style.cursor = "crosshair";
-                WorkflowEngine.ui.clearDragging();
-
-                if(WorkflowEngine.ui.isTransitionStarted){ 
-                    if(selectedItem!==undefined){
-                        WorkflowEngine.ui.transitionStartItem.targets.push(selectedItem.name);
-                    }
-                    WorkflowEngine.ui.clearTransition();
-                } else {
-                    if(selectedItem!==undefined){
-                        WorkflowEngine.ui.transitionStartItem = selectedItem;
-                        WorkflowEngine.ui.isTransitionStarted = true;
-                    } else{
-                        WorkflowEngine.ui.clearTransition();
-                    }
-                }
-                WorkflowEngine.render();
-            },
-            endDragging: function(){
-                WorkflowEngine.ui.clearDragging()
-            },
-            beginDragging: function(x, y){
-                WorkflowEngine.ui.clearTransition();
-                WorkflowEngine.ui.dragItem = WorkflowEngine.selectItem(x, y);
-                WorkflowEngine.ui.isDragging = WorkflowEngine.ui.dragItem !== undefined;
-                WorkflowEngine.render();
-            },
-            dragging: function(x, y){
-                WorkflowEngine.ui.dragItem.x = event.x;
-                WorkflowEngine.ui.dragItem.y = event.y;
-                WorkflowEngine.render();
-            },
-            clearDragging: function(){
-                WorkflowEngine.ui.isDragging = false;
-                delete WorkflowEngine.ui.dragItem;
-            },
-            clearTransition: function(){
-                canvas.style.cursor = "default";
-                WorkflowEngine.ui.isTransitionStarted = false;
-                delete WorkflowEngine.ui.transitionStartItem;
-                delete WorkflowEngine.selectedItem;
-            },
-            clearTransitionSelection: function(){
-                delete WorkflowEngine.selectedTransition;
             }
+        },
+        createNewNode: function(node){
+            this.workflow.push(node);
         },
         deleteSelectedNode: function(){
-
-            if(this.selectedItem !== undefined){
+            if(WorkflowEngine.ui.currentMode ===  UI_ACTION_MODE.NODE_SELECT){
                 var selectedItemName = this.selectedItem.name;
-                this.workflow = this.workflow.map((item)=>{
-                    item.targets = item.targets.filter((x)=>x!==selectedItemName);
-                    if(item.name!==selectedItemName) 
-                        return item;
-                }).filter((item)=>item);
-                this.render();
+                this.workflow = this.workflow.map( node => {
+                    node.targets = node.targets.filter( x => x !== selectedItemName);
+                    return (node.name!==selectedItemName) ? node : undefined;
+                }).filter(node => node);
             }
         },
+        deleteSelectedTransition: function(){
+            if(WorkflowEngine.ui.currentMode ===  UI_ACTION_MODE.TRANSITION_SELECT){                
+                this.selectedTransition.node.targets = 
+                    this.selectedTransition.node.targets
+                        .filter(target => target !== this.selectedTransition.transition);
+            }
+        },
+        getTransitionsEndPoints: function(targets){
+            return targets.map(
+                (item) => {
+                    var target = this.workflow.find((x)=>{
+                        return x.name === item;
+                    });
+                    return target?{x: target.x, y: target.y, name: target.name}:undefined; 
+                }
+            );
+        },
         init: function (canvas, workflow) {
-            canvas.width = CANVAS_SIZE.width;
-            canvas.height = CANVAS_SIZE.height;
+            this.context = canvas.getContext("2d");
             this.workflow = workflow;
             this.loadTransitionList();
-            this.context = canvas.getContext("2d");
+            canvas.width = CANVAS_SIZE.width;
+            canvas.height = CANVAS_SIZE.height;
         },
-        selectItem: function(x, y){
-            this.selectedItem = this.workflow.find(
-                (item)=>{
-                    return (item.x - DEFAULT_SHAPE_SIZE.width/2) <= x && (item.x + DEFAULT_SHAPE_SIZE.width/2) >= x &&
-                        (item.y - DEFAULT_SHAPE_SIZE.height/2) <= y && (item.y + DEFAULT_SHAPE_SIZE.height/2) >= y; //+100 LEGEND
-                });
-            return this.selectedItem;
+        isANodeSelected: function(){
+            return this.selectedItem !== undefined;
         },
         loadTransitionList: function(){
              this.transitionList = [];
@@ -496,9 +519,6 @@
                 }));
             }
         },
-        createNewNode: function(node){
-            this.workflow.push(node);
-        },
         render: function(){
             this.context.clearRect(0, 0, CANVAS_SIZE.width, CANVAS_SIZE.height);
             this.loadTransitionList();
@@ -506,8 +526,8 @@
                 var item = this.workflow[idx];
                 var selectedTarget = "";
                 var transitionsPoints = this.getTransitionsEndPoints(item.targets);
-    
-                if(this.selectedTransition && item === this.selectedTransition.node){
+
+                if(WorkflowEngine.ui.currentMode === UI_ACTION_MODE.TRANSITION_SELECT && item === this.selectedTransition.node){
                     selectedTarget = this.selectedTransition.transition;
                 }
 
@@ -515,15 +535,13 @@
                 drawShape(this.context, item.x, item.y, item.type, item===this.selectedItem);
             }
         },
-        getTransitionsEndPoints: function(targets){
-            return targets.map(
-                (item) => {
-                    var target = this.workflow.find((x)=>{
-                        return x.name === item;
-                    });
-                    return target?{x: target.x, y: target.y, name: target.name}:undefined; 
-                }
-            );
+        selectItem: function(x, y){
+            this.selectedItem = this.workflow.find(
+                (item)=>{
+                    return (item.x - DEFAULT_SHAPE_SIZE.width/2) <= x && (item.x + DEFAULT_SHAPE_SIZE.width/2) >= x &&
+                        (item.y - DEFAULT_SHAPE_SIZE.height/2) <= y && (item.y + DEFAULT_SHAPE_SIZE.height/2) >= y; //+100 LEGEND
+                });
+            return this.selectedItem;
         }
     };
 
