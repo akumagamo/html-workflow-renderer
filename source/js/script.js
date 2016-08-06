@@ -8,7 +8,7 @@
     const EVENT_KEYS = { DELETE: "Delete" };
     const QUANDRANTS = { Q0: 0, Q1: 1, Q2: 2, Q3: 3, VERTICAL: 4, HORIZONTAL: 5 };
     const SHAPES = { STATE: 0, TASK: 1, CONDITIONAL: 2, FORK: 3, JOIN: 4 };
-    const TRANSITION = { COLOR: "black", SELECTED_COLOR: "red", ARROW_SIZE: 5, ARROW_FILL_COLOR: "white", ARROW_IS_FILL_STYLE: true };
+    const TRANSITION = { SELECTION_DELTA: 5, COLOR: "black", SELECTED_COLOR: "red", ARROW_SIZE: 5, ARROW_FILL_COLOR: "white", ARROW_IS_FILL_STYLE: true };
     const UI_ACTION_MODE = { UNSELECTED:0, NEW_TRANSITION:1, NODE_SELECT:2, TRANSITION_SELECT:3, DRAGGING: 4 };
 
     function calculateNewTransitionPoint(pointx, pointy, targetx, targety){
@@ -331,7 +331,7 @@
             point.y - secondIntersectionPoint.y
         );
 
-        return (lengthVector2<5 || lengthVector1<5);
+        return (lengthVector2 < TRANSITION.SELECTION_DELTA || lengthVector1 < TRANSITION.SELECTION_DELTA);
     }
 
     function handleUIEvents(event){
