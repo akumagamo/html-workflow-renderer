@@ -40,8 +40,8 @@ https://github.com/akumagamo/html-workflow-renderer.git
 
 ## Documentation
     1) Create JSON WorkFlow List 
-    1) Initialize WorkflowEngine
-    1) Invoke Render function 
+    2) Initialize WorkflowEngine
+    3) Invoke Render function 
 
 *Here is a link to a [mini Demo](https://rawgit.com/akumagamo/html-workflow-renderer/master/source/index.html)*
 
