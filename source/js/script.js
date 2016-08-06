@@ -1,7 +1,7 @@
 "use strict";
 
 (function(canvas){
-    const CANVAS_SIZE = { width: 500, height:200 }; 
+    const CANVAS_SIZE = { width: 500, height:400 }; 
     const COLORS = { SELECTED_SHAPE: "gray" };
     const CURSORS = { DEFAULT: "default", CREATE_TRANSITION: "crosshair"};
     const DEFAULT_SHAPE_SIZE = { width: 50, height: 20 };
