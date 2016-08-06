@@ -127,7 +127,6 @@
     }
 
     function calculateNewTransitionPoint(pointx, pointy, targetx, targety){
-
         var s;
         var newX;
         var newY;
@@ -235,7 +234,6 @@
     function calculateYCoordinate(px1, py1, px2, py2, x ){
         var divisor = (px2 - px1);
         var k = (py2-py1) / (px2 - px1);
-       
         return (x - px2) * (divisor===0?0:k) + py2;
     }
 
@@ -255,18 +253,24 @@
             y: point.y
         };
 
-        if(node.x < transition.x && transition.x < point.x){
+        if(
+            (node.x < transition.x && transition.x < point.x) ||
+            (node.x > transition.x && transition.x > point.x)
+        ){
             firstIntersectionPoint = {
                 x: transition.x,
                 y: transition.y
             };
-            firstIntersectionPoint = secondIntersectionPoint;
-        } else if(node.x > transition.x && node.x < point.x){
+            secondIntersectionPoint = firstIntersectionPoint;
+        } else if(
+            (node.x > transition.x && node.x < point.x) ||
+            (node.x < transition.x && node.x > point.x)
+        ){
             firstIntersectionPoint = {
                 x: node.x,
                 y: node.y
             };
-            firstIntersectionPoint = secondIntersectionPoint;
+            secondIntersectionPoint = firstIntersectionPoint;
         } else if(node.x === transition.x) {
             if(node.y < transition.y){
                 if(transition.y > point.y && point.y > node.y ){
@@ -357,7 +361,7 @@
     canvas.addEventListener("mousemove", handleUIEvents);
     canvas.addEventListener("mouseup", handleUIEvents);
     canvas.addEventListener("mouseout", handleUIEvents);
-
+ 
     var demoWorkflowNodes = [ 
         {name: "created", type: SHAPES.STATE, x:25, y:20, targets:["review"] },
         {name: "review",type: SHAPES.TASK, x:25, y:180, targets:["if"]},
@@ -369,8 +373,8 @@
         {name: "xor",type: SHAPES.JOIN, x:350, y:140, targets:["approved"]},
         {name: "error",type: SHAPES.STATE, x:210, y:260, targets:["xor"]}
     ];
-
-   /* var demoWorkflowNodes = [ 
+  /*
+ var demoWorkflowNodes = [ 
         {name: "start", type: SHAPES.STATE, x:25, y:20, targets:["end"] },
         {name: "end",type: SHAPES.TASK, x:150, y:100, targets:[]}];
 */
