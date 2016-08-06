@@ -6,6 +6,8 @@ Workflow Render Engine (eventually for Liferay Kaleo Workflow)
 
 ![Screenshot from a workflow](https://raw.githubusercontent.com/akumagamo/html-workflow-renderer/master/readme/screenshot_01.png "Screenshot from a workflow")
 
+*Here is a link to a [mini Demo](https://rawgit.com/akumagamo/html-workflow-renderer/master/source/index.html)*
+
 ## Features
 * Render Workflow 
     * from JSON on HTML canvas
@@ -42,8 +44,6 @@ https://github.com/akumagamo/html-workflow-renderer.git
     1) Create JSON WorkFlow List 
     2) Initialize WorkflowEngine
     3) Invoke Render function 
-
-*Here is a link to a [mini Demo](https://rawgit.com/akumagamo/html-workflow-renderer/master/source/index.html)*
 
 ### Base Code Example
     var canvas = document.getElementById("canvas");
